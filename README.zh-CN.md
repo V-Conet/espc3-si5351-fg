@@ -5,6 +5,9 @@
 ## 简介
 基于 ESP32-C3（Rust / ESP-IDF）的 Si5351A 三路时钟信号发生器。默认通过 **BLE** 控制；设备同时开启一个**无密码热点 `Si5351-FG`**，浏览器打开 http://192.168.23.1/ 即可通过网页控制。也可以下发路由器 Wi-Fi 凭据，让设备以 AP+STA 方式连接路由器。
 
+> **预部署的网页端**：[espfg.vcox.eu.org](http://espfg.vcox.eu.org)，可用于蓝牙控制。
+>
+
 <table>
   <tr>
     <td align="center" valign="middle" width="200">
@@ -25,10 +28,13 @@
   <tr>
     <td align="center" valign="middle" rowspan="2">
       <img src="docs/real.webp" alt="ESP32C3-SuperMini" width="400"/><br/>
-      <small> 测试设备为 DS4T252 </small>
+      <small>测试设备为 DS4T252</small>
     </td>
     <td align="center" valign="middle">
       <img src="docs/DSTSS12.bmp" width="300"/>
+    </td>
+    <td align="center" valign="middle" rowspan="2">
+      <img src="docs/client.webp" width="200"/>
     </td>
   </tr>
   <tr>
@@ -37,7 +43,6 @@
     </td>
   </tr>
 </table>
-
 
 
 

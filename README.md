@@ -6,6 +6,9 @@
 
 A three-channel Si5351A clock signal generator based on ESP32-C3 (Rust / ESP-IDF). The device is controlled over **BLE** by default. It also starts an **open access point named `Si5351-FG`**; open http://192.168.23.1/ in a browser to control it through the web interface. Router Wi-Fi credentials can also be provisioned, allowing the device to connect in AP+STA mode.
 
+> **Pre-deployed web interface**: [espfg.vcox.eu.org](http://espfg.vcox.eu.org)，can be used for Bluetooth control.
+>
+
 <table>
   <tr>
     <td align="center" valign="middle" width="200">
@@ -29,6 +32,9 @@ A three-channel Si5351A clock signal generator based on ESP32-C3 (Rust / ESP-IDF
     </td>
     <td align="center" valign="middle">
       <img src="docs/DSTSS12.bmp" width="300"/>
+    </td>
+    <td align="center" valign="middle" rowspan="2">
+      <img src="docs/client.webp" width="200"/>
     </td>
   </tr>
   <tr>
