@@ -1,0 +1,35 @@
+# Rust often needs a bit of an extra main task stack size compared to C (the default is 3K)
+# You might have to increase this further if you allocate large stack variables in the main task
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=8192
+
+# Increase a bit these stack sizes as they are also a bit too small by default
+CONFIG_ESP_SYSTEM_EVENT_TASK_STACK_SIZE=4096
+CONFIG_FREERTOS_IDLE_TASK_STACKSIZE=4096
+
+# You might have to increase this further if you spawn your own Rust threads 
+# that allocate large stack variables; or better yet - use 
+# `std::thread::Builder::new().stack_size(XXX)` for spawning
+CONFIG_PTHREAD_TASK_STACK_SIZE_DEFAULT=6144
+
+# --- Wi-Fi + BLE (NimBLE) for ESP32-C3 ---
+# 4 MB flash is the common ESP32-C3 devkit size; change if your board differs.
+CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
+# 1.5 MB application partition (Wi-Fi + NimBLE + Rust does not fit in the default 1 MB)
+CONFIG_PARTITION_TABLE_SINGLE_APP_LARGE=y
+
+CONFIG_BT_ENABLED=y
+CONFIG_BT_BLUEDROID_ENABLED=n
+CONFIG_BT_NIMBLE_ENABLED=y
+CONFIG_BT_NIMBLE_ROLE_PERIPHERAL=y
+CONFIG_BT_NIMBLE_ROLE_CENTRAL=n
+CONFIG_BT_NIMBLE_ROLE_OBSERVER=n
+CONFIG_BT_NIMBLE_ROLE_BROADCASTER=n
+CONFIG_BT_NIMBLE_GATT_SERVER=y
+CONFIG_BT_NIMBLE_MAX_CONNECTIONS=1
+CONFIG_BT_NIMBLE_ATT_PREFERRED_MTU=256
+CONFIG_BT_NIMBLE_HOST_TASK_STACK_SIZE=6144
+# Wi-Fi and BLE share the 2.4 GHz radio.
+CONFIG_ESP_COEX_SW_COEXIST_ENABLE=y
+
+# Browsers send long request headers; the IDF default of 512 bytes is too small.
+CONFIG_HTTPD_MAX_REQ_HDR_LEN=1024

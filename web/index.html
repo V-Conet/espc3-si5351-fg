@@ -1,0 +1,1594 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Si5351 信号发生器</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #fafafa;
+    --panel: #ffffff;
+    --fg: #18181b;
+    --muted: #71717a;
+    --line: #e4e4e7;
+    --accent: #2563eb;
+    --ok: #16a34a;
+    --danger: #dc2626;
+    --input: #ffffff;
+    --radius: 6px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f0f10;
+      --panel: #161618;
+      --fg: #e4e4e7;
+      --muted: #a1a1aa;
+      --line: #27272a;
+      --accent: #60a5fa;
+      --ok: #4ade80;
+      --danger: #f87171;
+      --input: #121214;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font: 15px/1.6 system-ui, -apple-system, "Segoe UI", "PingFang SC",
+      "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  main { max-width: 760px; margin: 0 auto; padding: 28px 24px 56px; }
+
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 10px 16px;
+    padding-bottom: 18px; border-bottom: 1px solid var(--line);
+    margin-bottom: 20px;
+  }
+  h1 { margin: 0; font-size: 19px; font-weight: 600; letter-spacing: .01em; }
+  .indicators {
+    display: flex; align-items: center; justify-content: flex-end;
+    flex-wrap: wrap; gap: 6px 18px; margin-left: auto;
+  }
+  .indicator {
+    display: inline-flex; align-items: center; gap: 7px;
+    color: var(--muted); font-size: 12px; line-height: 1;
+    white-space: nowrap;
+  }
+  .dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--muted); flex: none;
+  }
+  .dot.ok { background: var(--ok); }
+  .dot.err { background: var(--danger); }
+  .dot.busy { background: var(--accent); }
+
+  .toolbar {
+    display: flex; align-items: center; gap: 8px;
+    flex-wrap: wrap; margin-bottom: 28px;
+  }
+  .mode { margin-left: auto; font-size: 12px; color: var(--muted); }
+  .lang {
+    height: 28px; padding: 0 9px; font-size: 12px;
+    color: var(--muted); background: transparent;
+  }
+  .lang:hover { color: var(--fg); }
+
+  section { margin-bottom: 34px; }
+  .section-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 12px; margin-bottom: 14px;
+  }
+  h2 {
+    margin: 0; font-size: 12px; font-weight: 600;
+    color: var(--muted); letter-spacing: .08em;
+  }
+  p { margin: 0; }
+  .hint { font-size: 12px; line-height: 1.7; color: var(--muted); }
+  code {
+    font: 11.5px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    color: var(--fg); background: var(--panel);
+    border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px;
+  }
+
+  button {
+    height: 36px; padding: 0 14px; font: inherit; font-size: 14px;
+    color: var(--fg); background: var(--panel);
+    border: 1px solid var(--line); border-radius: var(--radius);
+    cursor: pointer; white-space: nowrap;
+  }
+  button:hover { border-color: var(--muted); }
+  button:disabled { opacity: .45; cursor: default; }
+  button.primary { color: var(--accent); border-color: var(--accent); }
+
+  input:not([type="checkbox"]), select {
+    height: 36px; padding: 0 10px; font: inherit; font-size: 14px;
+    color: var(--fg); background: var(--input);
+    border: 1px solid var(--line); border-radius: var(--radius);
+    min-width: 0;
+  }
+  input[type="number"] {
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    padding-right: 8px;
+  }
+  input:focus, select:focus, button:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 1px;
+  }
+
+  /* enable switch */
+  .switch {
+    position: relative;
+    display: inline-flex; align-items: center; gap: 8px;
+    height: 36px; padding: 0 10px;
+    border: 1px solid var(--line); border-radius: var(--radius);
+    color: var(--muted); font-size: 13px;
+    cursor: pointer; user-select: none; white-space: nowrap;
+  }
+  .switch:has(input:checked) { color: var(--fg); border-color: var(--accent); }
+  .switch:has(input:disabled) { opacity: .55; cursor: default; }
+  .switch input[type="checkbox"] {
+    appearance: none; -webkit-appearance: none;
+    width: 30px; height: 18px; margin: 0; cursor: pointer;
+    border-radius: 9px; background: var(--line);
+    transition: background-color .15s ease;
+  }
+  .switch input[type="checkbox"]:checked { background: var(--accent); }
+  .switch .knob {
+    position: absolute; left: 12px; top: 50%;
+    width: 14px; height: 14px; margin-top: -7px;
+    border-radius: 50%; background: #fff;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .25);
+    pointer-events: none; transition: left .15s ease;
+  }
+  .switch input[type="checkbox"]:checked ~ .knob { left: 24px; }
+
+  /* channel rows */
+  .channel {
+    display: grid;
+    grid-template-columns: 52px auto minmax(150px, 1fr) 84px auto;
+    grid-template-areas:
+      "name switch freq drive apply"
+      "status status status status status";
+    align-items: center;
+    gap: 8px 10px;
+    padding: 16px 0;
+    border-top: 1px solid var(--line);
+  }
+  .channel:first-of-type { border-top: 0; padding-top: 0; }
+  .channel-name {
+    grid-area: name; font-weight: 600; font-size: 14px;
+    white-space: nowrap;
+  }
+  .channel .switch { grid-area: switch; }
+  .freq { grid-area: freq; display: flex; min-width: 0; }
+  .freq input {
+    flex: 1 1 auto; min-width: 0;
+    border-top-right-radius: 0; border-bottom-right-radius: 0;
+    border-right: 0;
+  }
+  .freq select {
+    flex: 0 0 74px; width: 74px; padding: 0 6px;
+    border-top-left-radius: 0; border-bottom-left-radius: 0;
+  }
+  .channel select[data-drive] { grid-area: drive; width: 100%; }
+  .channel button[data-apply] { grid-area: apply; justify-self: start; }
+  .channel-status {
+    grid-area: status; font-size: 12px; line-height: 1.4;
+    color: var(--muted);
+  }
+  .channel-status:empty { display: none; }
+  .channel-status.err { color: var(--danger); }
+
+  .actions {
+    display: flex; gap: 8px; flex-wrap: wrap; margin-top: 18px;
+  }
+
+  /* wifi form */
+  .fields {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 10px; align-items: end;
+  }
+  .field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .field label { font-size: 12px; color: var(--muted); }
+  .wifi-actions {
+    display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px;
+  }
+  .wifi-actions button { flex: 0 0 auto; }
+  .sweep-form {
+    display: flex; flex-wrap: wrap; gap: 10px; align-items: end;
+  }
+  .sweep-form .field { flex: 1 1 120px; }
+  .sweep-form .sweep-dwell { flex: 0 1 160px; }
+  .sweep-form .switch { flex: 0 0 auto; margin-left: auto; }
+  .sweep-form button { flex: 0 0 auto; }
+
+  details { border-top: 1px solid var(--line); padding-top: 14px; }
+  summary { cursor: pointer; font-size: 12px; color: var(--muted); }
+  #log {
+    max-height: 180px; overflow: auto; margin: 10px 0 0;
+    font: 11.5px/1.7 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    color: var(--muted); white-space: pre-wrap; word-break: break-all;
+  }
+  .hidden { display: none !important; }
+
+  @media (max-width: 640px) {
+    main { padding: 20px 16px 48px; }
+    header { align-items: flex-start; }
+    .indicators { justify-content: flex-start; margin-left: 0; gap: 6px 14px; }
+    .channel {
+      grid-template-columns: 1fr auto auto;
+      grid-template-areas:
+        "name switch apply"
+        "freq freq drive"
+        "status status status";
+    }
+    .channel .switch { justify-self: end; }
+    .channel button[data-apply] { justify-self: end; }
+    .fields { grid-template-columns: 1fr; }
+    .wifi-actions button { flex: 1 1 140px; }
+    .sweep-form button { flex: 1 1 140px; }
+    .sweep-form .sweep-dwell { flex: 1 1 120px; }
+    .sweep-form .switch { margin-left: 0; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1 data-i18n="title">Si5351 信号发生器</h1>
+    <div class="indicators">
+      <span class="indicator"><span class="dot" id="dot"></span><span id="connText">未连接</span></span>
+      <span class="indicator" id="wifiIndicator" title="设备 Wi-Fi 状态"><span class="dot" id="wifiDot"></span><span id="wifiText">Wi-Fi 未知</span></span>
+      <span class="indicator" id="siIndicator" title="连接后显示 Si5351 状态"><span class="dot" id="siDot"></span><span id="siText">Si5351 未知</span></span>
+    </div>
+  </header>
+
+  <div class="toolbar">
+    <button id="connectBtn" class="primary" data-i18n="connectBle">连接蓝牙</button>
+    <button id="refreshBtn" data-i18n="refresh">刷新</button>
+    <span id="modeLabel" class="mode">蓝牙控制</span>
+    <button id="langBtn" class="lang" type="button" title="切换到英文">EN</button>
+  </div>
+
+  <section>
+    <div class="section-head">
+      <h2 data-i18n="output">输出</h2>
+      <span class="hint" data-i18n="range">7.813 kHz – 160 MHz</span>
+    </div>
+
+    <div class="channel" data-ch="0">
+      <span class="channel-name">CLK0</span>
+      <label class="switch"><input type="checkbox" data-on><span class="knob"></span><span data-i18n="enable">启用</span></label>
+      <div class="freq">
+        <input type="number" data-freq inputmode="decimal" step="any" aria-label="频率" data-i18n-aria-label="freqAria">
+        <select data-unit aria-label="频率单位" data-i18n-aria-label="unitAria">
+          <option value="1">Hz</option>
+          <option value="1000">kHz</option>
+          <option value="1000000">MHz</option>
+        </select>
+      </div>
+      <select data-drive aria-label="驱动电流" data-i18n-aria-label="driveAria">
+        <option value="2">2 mA</option>
+        <option value="4">4 mA</option>
+        <option value="6">6 mA</option>
+        <option value="8">8 mA</option>
+      </select>
+      <button data-apply data-i18n="apply">应用</button>
+      <span class="channel-status" data-status></span>
+    </div>
+
+    <div class="channel" data-ch="1">
+      <span class="channel-name">CLK1</span>
+      <label class="switch"><input type="checkbox" data-on><span class="knob"></span><span data-i18n="enable">启用</span></label>
+      <div class="freq">
+        <input type="number" data-freq inputmode="decimal" step="any" aria-label="频率" data-i18n-aria-label="freqAria">
+        <select data-unit aria-label="频率单位" data-i18n-aria-label="unitAria">
+          <option value="1">Hz</option>
+          <option value="1000">kHz</option>
+          <option value="1000000">MHz</option>
+        </select>
+      </div>
+      <select data-drive aria-label="驱动电流" data-i18n-aria-label="driveAria">
+        <option value="2">2 mA</option>
+        <option value="4">4 mA</option>
+        <option value="6">6 mA</option>
+        <option value="8">8 mA</option>
+      </select>
+      <button data-apply data-i18n="apply">应用</button>
+      <span class="channel-status" data-status></span>
+    </div>
+
+    <div class="channel" data-ch="2">
+      <span class="channel-name">CLK2</span>
+      <label class="switch"><input type="checkbox" data-on><span class="knob"></span><span data-i18n="enable">启用</span></label>
+      <div class="freq">
+        <input type="number" data-freq inputmode="decimal" step="any" aria-label="频率" data-i18n-aria-label="freqAria">
+        <select data-unit aria-label="频率单位" data-i18n-aria-label="unitAria">
+          <option value="1">Hz</option>
+          <option value="1000">kHz</option>
+          <option value="1000000">MHz</option>
+        </select>
+      </div>
+      <select data-drive aria-label="驱动电流" data-i18n-aria-label="driveAria">
+        <option value="2">2 mA</option>
+        <option value="4">4 mA</option>
+        <option value="6">6 mA</option>
+        <option value="8">8 mA</option>
+      </select>
+      <button data-apply data-i18n="apply">应用</button>
+      <span class="channel-status" data-status></span>
+    </div>
+
+    <div class="actions">
+      <button id="saveBtn" data-i18n="save">保存到设备</button>
+      <button id="resetBtn" data-i18n="reset">恢复默认</button>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2 data-i18n="sweep">扫频</h2>
+      <span id="sweepSummary" class="hint"></span>
+    </div>
+    <div class="sweep-form">
+      <div class="field">
+        <label for="sweepCh" data-i18n="sweepChannel">通道</label>
+        <select id="sweepCh">
+          <option value="0">CLK0</option>
+          <option value="1">CLK1</option>
+          <option value="2">CLK2</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="sweepStart" data-i18n="sweepStart">起始</label>
+        <input id="sweepStart" type="number" inputmode="decimal" step="any" value="1">
+      </div>
+      <div class="field">
+        <label for="sweepEnd" data-i18n="sweepEnd">终止</label>
+        <input id="sweepEnd" type="number" inputmode="decimal" step="any" value="10">
+      </div>
+      <div class="field">
+        <label for="sweepStep" data-i18n="sweepStep">步进</label>
+        <input id="sweepStep" type="number" inputmode="decimal" step="any" value="0.1">
+      </div>
+      <div class="field">
+        <label for="sweepUnit" data-i18n="sweepUnit">单位</label>
+        <select id="sweepUnit">
+          <option value="1">Hz</option>
+          <option value="1000">kHz</option>
+          <option value="1000000" selected>MHz</option>
+        </select>
+      </div>
+      <div class="field sweep-dwell">
+        <label for="sweepDwell" data-i18n="sweepDwell">驻留 (ms)</label>
+        <input id="sweepDwell" type="number" inputmode="numeric" min="20" max="60000" value="100">
+      </div>
+      <label class="switch sweep-loop"><input id="sweepLoop" type="checkbox"><span class="knob"></span><span data-i18n="sweepLoop">循环</span></label>
+      <button id="sweepStartBtn" class="primary" data-i18n="sweepStartBtn">开始扫频</button>
+      <button id="sweepStopBtn" data-i18n="sweepStopBtn" disabled>停止</button>
+    </div>
+    <p id="sweepState" class="hint" style="margin-top:10px" data-i18n="sweepIdle">扫频未运行</p>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2 data-i18n="wifi">Wi-Fi</h2>
+    </div>
+    <div class="fields">
+      <div class="field">
+        <label for="ssid">SSID</label>
+        <input id="ssid" autocomplete="off" maxlength="32" placeholder="路由器名称" data-i18n-placeholder="ssidPlaceholder">
+      </div>
+      <div class="field">
+        <label for="pass" data-i18n="password">密码</label>
+        <input id="pass" type="password" autocomplete="new-password" maxlength="64" placeholder="留空表示开放网络" data-i18n-placeholder="passPlaceholder">
+      </div>
+    </div>
+    <div class="wifi-actions">
+      <button id="wifiBtn" class="primary" data-i18n="connectRouter">连接路由器</button>
+      <button id="forgetBtn" data-i18n="forgetWifi">忘记 Wi-Fi</button>
+    </div>
+    <p id="wifiState" class="hint" style="margin-top:12px">Wi-Fi 状态未知</p>
+    <p class="hint" style="margin-top:6px" data-i18n-html="wifiHint">
+      默认开启无密码热点 <code>Si5351-FG</code>，浏览器访问 <code>http://192.168.23.1/</code> 即可控制。
+      填写上面的路由器 SSID/密码后，设备会同时连接路由器（热点保持可用）；切换期间热点可能短暂重启，页面断开后重新连接热点并刷新即可。
+    </p>
+  </section>
+
+  <section>
+    <details>
+      <summary data-i18n="log">日志</summary>
+      <pre id="log"></pre>
+    </details>
+  </section>
+</main>
+
+<script>
+(() => {
+  'use strict';
+
+  const SERVICE = '53510000-0001-4a5b-8c9d-e0f123456789';
+  const CMD = '53510000-0002-4a5b-8c9d-e0f123456789';
+  const RSP = '53510000-0003-4a5b-8c9d-e0f123456789';
+  const CH = [
+    '53510000-0004-4a5b-8c9d-e0f123456789',
+    '53510000-0005-4a5b-8c9d-e0f123456789',
+    '53510000-0006-4a5b-8c9d-e0f123456789',
+  ];
+  const WIFI = '53510000-0007-4a5b-8c9d-e0f123456789';
+  const INFO = '53510000-0008-4a5b-8c9d-e0f123456789';
+  const SWEEP = '53510000-0009-4a5b-8c9d-e0f123456789';
+  const MIN_HZ = 7813;
+  const MAX_HZ = 160000000;
+  const MAX_SWEEP_POINTS = 20000;
+  const SWEEP_MIN_DWELL_MS = 20;
+  const SWEEP_MAX_DWELL_MS = 60000;
+  const AP_SSID = 'Si5351-FG';
+  const AP_IP = '192.168.23.1';
+
+  const I18N = {
+    zh: {
+      title: 'Si5351 信号发生器',
+      connectBle: '连接蓝牙',
+      refresh: '刷新',
+      modeBle: '蓝牙控制',
+      modeHttp: 'Wi-Fi 控制',
+      output: '输出',
+      range: '7.813 kHz – 160 MHz',
+      enable: '启用',
+      apply: '应用',
+      save: '保存到设备',
+      reset: '恢复默认',
+      wifi: 'Wi-Fi',
+      password: '密码',
+      ssidPlaceholder: '路由器名称',
+      passPlaceholder: '留空表示开放网络',
+      connectRouter: '连接路由器',
+      forgetWifi: '忘记 Wi-Fi',
+      confirmForget: '忘记已保存的路由器 Wi-Fi？设备将回到默认热点模式。',
+      forgetFailed: '忘记失败: {msg}',
+      sweep: '扫频',
+      sweepChannel: '通道',
+      sweepStart: '起始',
+      sweepEnd: '终止',
+      sweepStep: '步进',
+      sweepUnit: '单位',
+      sweepDwell: '驻留 (ms)',
+      sweepLoop: '循环',
+      sweepStartBtn: '开始扫频',
+      sweepStopBtn: '停止',
+      sweepIdle: '扫频未运行',
+      sweepUnknown: '扫频状态未知',
+      sweepRunningDetail: '扫频中 · {ch} · {freq}',
+      sweepStoppedDetail: '已停止 · {freq}',
+      sweepPoints: '{points} 点 · 约 {duration}',
+      sweepInvalid: '扫频参数无效',
+      sweepTooMany: '点数过多（最多 {max}）',
+      sweepFailed: '扫频失败: {msg}',
+      wifiHint: '默认开启无密码热点 <code>Si5351-FG</code>，浏览器访问 <code>http://192.168.23.1/</code> 即可控制。填写上面的路由器 SSID/密码后，设备会同时连接路由器（热点保持可用）；切换期间热点可能短暂重启，页面断开后重新连接热点并刷新即可。',
+      log: '日志',
+      langSwitchTitle: '切换到英文',
+      freqAria: '频率',
+      unitAria: '频率单位',
+      driveAria: '驱动电流',
+      notConnected: '未连接',
+      connected: '已连接',
+      disconnected: '已断开',
+      connecting: '正在连接…',
+      bleConnected: '蓝牙已连接',
+      wifiConnected: 'Wi-Fi 已连接',
+      unreachable: '设备不可达',
+      sendFailed: '发送失败',
+      browserUnsupported: '浏览器不支持',
+      noBle: '浏览器不支持蓝牙',
+      bleNotConnected: '蓝牙未连接',
+      wifiUnknown: 'Wi-Fi 未知',
+      wifiConnecting: 'Wi-Fi 连接中',
+      wifiFailed: 'Wi-Fi 失败',
+      wifiAp: 'Wi-Fi 热点',
+      wifiNotConfigured: 'Wi-Fi 未配置',
+      wifiUnknownTitle: '连接设备后显示 Wi-Fi 状态',
+      wifiConnectingTitle: '正在连接 Wi-Fi（热点仍可在 192.168.23.1 访问）',
+      wifiConnectedTitle: 'Wi-Fi 已连接',
+      wifiFailedTitleDetail: 'Wi-Fi 连接失败：{detail} · 热点仍可在 192.168.23.1 访问',
+      wifiFailedTitleNoDetail: 'Wi-Fi 连接失败 · 热点仍可在 192.168.23.1 访问',
+      wifiApTitle: '热点已开启',
+      wifiNotConfiguredTitle: '设备尚未配置 Wi-Fi',
+      wifiConnectingDetail: '连接中…',
+      wifiConnectedDetail: '已连接',
+      wifiFailedDetail: '连接失败',
+      wifiFailedDetailText: '连接失败 · {detail}',
+      wifiApDetail: '热点已开启',
+      wifiNotConfiguredDetail: '未配置',
+      wifiStatusUnknown: 'Wi-Fi 状态未知',
+      siUnknown: 'Si5351 未知',
+      siOk: 'Si5351 正常',
+      siMissing: 'Si5351 未检测',
+      siUnknownTitle: '连接后显示 Si5351 状态',
+      siOkTitle: 'Si5351 I2C 通信正常',
+      siMissingTitle: '未检测到 Si5351：检查 VIN/GND 和 SDA/SCL 接线',
+      reason2: '认证过期',
+      reason3: 'AP 主动断开',
+      reason4: '关联过期',
+      reason8: 'AP 主动断开',
+      reason14: 'MIC 校验失败，请检查密码',
+      reason15: '四次握手超时，通常是密码错误',
+      reason16: '组密钥更新超时',
+      reason24: '加密套件不匹配',
+      reason200: 'Beacon 超时，信号可能太弱',
+      reason201: '未找到该 SSID，请确认这是 2.4 GHz 网络',
+      reason202: '认证失败，通常是密码错误',
+      reason203: '关联失败',
+      reason204: '握手超时，通常是密码错误',
+      reason205: '连接失败',
+      reason210: '找到 AP 但安全模式不兼容',
+      reason211: '没有符合安全阈值的 AP',
+      reason212: 'AP 信号太弱',
+      errorCode: '错误码 {code}',
+      rowApplied: '已应用',
+      rowUnsupported: '该频率组合不受支持',
+      rowI2c: 'I2C 通信失败：检查接线和供电',
+      rowInvalidFreq: '请输入有效频率',
+      rowRange: '范围 7.813 kHz – 160 MHz',
+      rowApplying: '应用中…',
+      rowWorking: '处理中…',
+      rowSent: '已发送',
+      rowFailed: '失败: {msg}',
+      failed: '失败',
+      wifiSsidRequired: '请输入 SSID',
+      wifiCredentialsTooLong: 'SSID 或密码过长',
+      deviceSwitching: '设备正在切换热点，请重新连接 Si5351-FG 后刷新页面',
+      wifiSendFailed: '发送失败: {msg}',
+      logWebBluetoothUnsupported: '此浏览器不支持 Web Bluetooth，请使用 Chrome / Edge。',
+      logSubscribeFailed: '订阅通知失败: ',
+      logConnected: '已连接 ',
+      logConnectFailed: '连接失败: ',
+      logDisconnected: '蓝牙连接已断开',
+      logReadFailed: '读取失败: ',
+      logSendFailed: '发送失败: ',
+      logFirmware: '固件 ',
+      logHttpConnected: '已通过 Wi-Fi 连接设备',
+      logRefreshFailed: '刷新失败: ',
+      logSaved: '设置已保存',
+      logSaveFailed: '保存失败: ',
+      logResetFailed: '恢复失败: ',
+      confirmReset: '恢复默认输出设置？',
+    },
+    en: {
+      title: 'Si5351 Signal Generator',
+      connectBle: 'Connect BLE',
+      refresh: 'Refresh',
+      modeBle: 'BLE control',
+      modeHttp: 'Wi-Fi control',
+      output: 'Output',
+      range: '7.813 kHz – 160 MHz',
+      enable: 'Enable',
+      apply: 'Apply',
+      save: 'Save to device',
+      reset: 'Reset defaults',
+      wifi: 'Wi-Fi',
+      password: 'Password',
+      ssidPlaceholder: 'Router SSID',
+      passPlaceholder: 'Leave blank for open network',
+      connectRouter: 'Connect',
+      forgetWifi: 'Forget Wi-Fi',
+      confirmForget: 'Forget the saved router Wi-Fi? The device will return to hotspot-only mode.',
+      forgetFailed: 'Forget failed: {msg}',
+      sweep: 'Sweep',
+      sweepChannel: 'Channel',
+      sweepStart: 'Start',
+      sweepEnd: 'End',
+      sweepStep: 'Step',
+      sweepUnit: 'Unit',
+      sweepDwell: 'Dwell (ms)',
+      sweepLoop: 'Loop',
+      sweepStartBtn: 'Start sweep',
+      sweepStopBtn: 'Stop',
+      sweepIdle: 'Sweep idle',
+      sweepUnknown: 'Sweep status unknown',
+      sweepRunningDetail: 'Sweeping · {ch} · {freq}',
+      sweepStoppedDetail: 'Stopped · {freq}',
+      sweepPoints: '{points} points · ~{duration}',
+      sweepInvalid: 'Invalid sweep parameters',
+      sweepTooMany: 'Too many points (max {max})',
+      sweepFailed: 'Sweep failed: {msg}',
+      wifiHint: 'An open hotspot <code>Si5351-FG</code> is always available at <code>http://192.168.23.1/</code>. Enter your router SSID and password above to connect the device to your network (the hotspot stays available). The hotspot may restart briefly while switching; reconnect and refresh if the page drops.',
+      log: 'Log',
+      langSwitchTitle: 'Switch to Chinese',
+      freqAria: 'Frequency',
+      unitAria: 'Frequency unit',
+      driveAria: 'Drive current',
+      notConnected: 'Not connected',
+      connected: 'Connected',
+      disconnected: 'Disconnected',
+      connecting: 'Connecting…',
+      bleConnected: 'BLE connected',
+      wifiConnected: 'Wi-Fi connected',
+      unreachable: 'Device unreachable',
+      sendFailed: 'Send failed',
+      browserUnsupported: 'Browser unsupported',
+      noBle: 'Bluetooth not supported',
+      bleNotConnected: 'Bluetooth not connected',
+      wifiUnknown: 'Wi-Fi unknown',
+      wifiConnecting: 'Wi-Fi connecting',
+      wifiFailed: 'Wi-Fi failed',
+      wifiAp: 'Wi-Fi hotspot',
+      wifiNotConfigured: 'Wi-Fi not configured',
+      wifiUnknownTitle: 'Connect to read Wi-Fi status',
+      wifiConnectingTitle: 'Connecting to Wi-Fi (hotspot still available at 192.168.23.1)',
+      wifiConnectedTitle: 'Wi-Fi connected',
+      wifiFailedTitleDetail: 'Wi-Fi connection failed: {detail} · hotspot still available at 192.168.23.1',
+      wifiFailedTitleNoDetail: 'Wi-Fi connection failed · hotspot still available at 192.168.23.1',
+      wifiApTitle: 'Hotspot active',
+      wifiNotConfiguredTitle: 'Device Wi-Fi is not configured',
+      wifiConnectingDetail: 'Connecting…',
+      wifiConnectedDetail: 'Connected',
+      wifiFailedDetail: 'Connection failed',
+      wifiFailedDetailText: 'Connection failed · {detail}',
+      wifiApDetail: 'Hotspot active',
+      wifiNotConfiguredDetail: 'Not configured',
+      wifiStatusUnknown: 'Wi-Fi status unknown',
+      siUnknown: 'Si5351 unknown',
+      siOk: 'Si5351 OK',
+      siMissing: 'Si5351 not detected',
+      siUnknownTitle: 'Connect to read Si5351 status',
+      siOkTitle: 'Si5351 I2C communication OK',
+      siMissingTitle: 'Si5351 not detected: check VIN/GND and SDA/SCL wiring',
+      reason2: 'Authentication expired',
+      reason3: 'AP disconnected the station',
+      reason4: 'Association expired',
+      reason8: 'AP disconnected the station',
+      reason14: 'MIC failure; check the password',
+      reason15: '4-way handshake timeout; usually a wrong password',
+      reason16: 'Group key update timeout',
+      reason24: 'Cipher suite mismatch',
+      reason200: 'Beacon timeout; signal may be too weak',
+      reason201: 'SSID not found; make sure it is a 2.4 GHz network',
+      reason202: 'Authentication failed; usually a wrong password',
+      reason203: 'Association failed',
+      reason204: 'Handshake timeout; usually a wrong password',
+      reason205: 'Connection failed',
+      reason210: 'AP found but security mode is incompatible',
+      reason211: 'No AP matches the security threshold',
+      reason212: 'AP signal is too weak',
+      errorCode: 'Error {code}',
+      rowApplied: 'Applied',
+      rowUnsupported: 'This frequency combination is not supported',
+      rowI2c: 'I2C communication failed: check wiring and power',
+      rowInvalidFreq: 'Enter a valid frequency',
+      rowRange: 'Range 7.813 kHz – 160 MHz',
+      rowApplying: 'Applying…',
+      rowWorking: 'Working…',
+      rowSent: 'Sent',
+      rowFailed: 'Failed: {msg}',
+      failed: 'failed',
+      wifiSsidRequired: 'Enter an SSID',
+      wifiCredentialsTooLong: 'SSID or password is too long',
+      deviceSwitching: 'The device is switching hotspot. Reconnect to Si5351-FG and refresh.',
+      wifiSendFailed: 'Send failed: {msg}',
+      logWebBluetoothUnsupported: 'This browser does not support Web Bluetooth. Use Chrome or Edge.',
+      logSubscribeFailed: 'Failed to subscribe: ',
+      logConnected: 'Connected ',
+      logConnectFailed: 'Connection failed: ',
+      logDisconnected: 'BLE disconnected',
+      logReadFailed: 'Read failed: ',
+      logSendFailed: 'Send failed: ',
+      logFirmware: 'Firmware ',
+      logHttpConnected: 'Connected to the device over Wi-Fi',
+      logRefreshFailed: 'Refresh failed: ',
+      logSaved: 'Settings saved',
+      logSaveFailed: 'Save failed: ',
+      logResetFailed: 'Reset failed: ',
+      confirmReset: 'Reset outputs to defaults?',
+    },
+  };
+
+  function storedLang() {
+    try {
+      const value = localStorage.getItem('si5351.lang');
+      return value === 'zh' || value === 'en' ? value : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function browserLang() {
+    const primary = navigator.languages && navigator.languages.length
+      ? navigator.languages[0]
+      : (navigator.language || 'en');
+    return String(primary).toLowerCase().startsWith('zh') ? 'zh' : 'en';
+  }
+
+  const queryLang = new URLSearchParams(location.search).get('lang');
+  let lang = queryLang === 'zh' || queryLang === 'en'
+    ? queryLang
+    : (storedLang() || browserLang());
+
+  function saveLang(value) {
+    try {
+      localStorage.setItem('si5351.lang', value);
+    } catch (_) {
+      /* private mode or storage disabled */
+    }
+  }
+
+  function t(key, vars) {
+    const table = I18N[lang] || I18N.en;
+    let value = table[key] !== undefined ? table[key] : I18N.en[key];
+    if (value === undefined) value = key;
+    if (vars) {
+      value = String(value).replace(/\{(\w+)\}/g, (match, name) => (
+        vars[name] !== undefined ? vars[name] : match
+      ));
+    }
+    return String(value);
+  }
+
+  const encoder = new TextEncoder();
+  const decoder = new TextDecoder();
+
+  let mode = 'ble';
+  let writeChain = Promise.resolve();
+  let ble = null;
+  let pendingChannel = null;
+  let connState = { key: 'notConnected', kind: '', detail: '' };
+  let siState = null;
+  let wifiData = null;
+  let sweepInfo = null;
+  const rowMessages = [null, null, null];
+
+  const $ = (selector, root = document) => root.querySelector(selector);
+  const rows = Array.from(document.querySelectorAll('.channel'));
+
+  const ui = {
+    dot: $('#dot'),
+    connText: $('#connText'),
+    connectBtn: $('#connectBtn'),
+    refreshBtn: $('#refreshBtn'),
+    modeLabel: $('#modeLabel'),
+    langBtn: $('#langBtn'),
+    saveBtn: $('#saveBtn'),
+    resetBtn: $('#resetBtn'),
+    ssid: $('#ssid'),
+    pass: $('#pass'),
+    wifiBtn: $('#wifiBtn'),
+    forgetBtn: $('#forgetBtn'),
+    sweepCh: $('#sweepCh'),
+    sweepStart: $('#sweepStart'),
+    sweepEnd: $('#sweepEnd'),
+    sweepStep: $('#sweepStep'),
+    sweepUnit: $('#sweepUnit'),
+    sweepDwell: $('#sweepDwell'),
+    sweepLoop: $('#sweepLoop'),
+    sweepStartBtn: $('#sweepStartBtn'),
+    sweepStopBtn: $('#sweepStopBtn'),
+    sweepState: $('#sweepState'),
+    sweepSummary: $('#sweepSummary'),
+    wifiState: $('#wifiState'),
+    wifiIndicator: $('#wifiIndicator'),
+    wifiDot: $('#wifiDot'),
+    wifiText: $('#wifiText'),
+    siIndicator: $('#siIndicator'),
+    siDot: $('#siDot'),
+    siText: $('#siText'),
+    log: $('#log'),
+  };
+
+  function log(message) {
+    const locale = lang === 'zh' ? 'zh-CN' : 'en-GB';
+    const time = new Date().toLocaleTimeString(locale, { hour12: false });
+    ui.log.textContent = `[${time}] ${message}\n` + ui.log.textContent;
+    const lines = ui.log.textContent.split('\n');
+    if (lines.length > 80) ui.log.textContent = lines.slice(0, 80).join('\n');
+  }
+
+  function setConn(key, kind = '', detail = '') {
+    connState = { key, kind, detail };
+    renderConn();
+  }
+
+  function renderConn() {
+    ui.connText.textContent = t(connState.key);
+    ui.connText.title = connState.detail || '';
+    ui.dot.className = 'dot' + (connState.kind ? ' ' + connState.kind : '');
+  }
+
+  function setMode(next) {
+    mode = next === 'http' ? 'http' : 'ble';
+    ui.connectBtn.classList.toggle('hidden', mode !== 'ble');
+    renderMode();
+    if (mode === 'http') setConn('wifiConnected', 'ok');
+  }
+
+  function renderMode() {
+    ui.modeLabel.textContent = t(mode === 'http' ? 'modeHttp' : 'modeBle');
+  }
+
+  function setRowStatus(index, key, vars, tone = '') {
+    rowMessages[index] = { key, vars, tone };
+    renderRowStatus(index);
+  }
+
+  function renderRowStatus(index) {
+    const element = $('[data-status]', rows[index]);
+    if (!element) return;
+    const message = rowMessages[index];
+    element.textContent = message ? t(message.key, message.vars) : '';
+    element.className = 'channel-status' + (message && message.tone ? ' ' + message.tone : '');
+  }
+
+  function renderAllRowStatuses() {
+    rows.forEach((_, index) => renderRowStatus(index));
+  }
+
+  function updateSi(ok) {
+    siState = ok;
+    renderSi();
+  }
+
+  function renderSi() {
+    if (siState === null) {
+      ui.siText.textContent = t('siUnknown');
+      ui.siDot.className = 'dot';
+      ui.siIndicator.title = t('siUnknownTitle');
+    } else if (siState) {
+      ui.siText.textContent = t('siOk');
+      ui.siDot.className = 'dot ok';
+      ui.siIndicator.title = t('siOkTitle');
+    } else {
+      ui.siText.textContent = t('siMissing');
+      ui.siDot.className = 'dot err';
+      ui.siIndicator.title = t('siMissingTitle');
+    }
+  }
+
+  function reasonText(code) {
+    const number = Number(code);
+    if (!number) return '';
+    const key = 'reason' + number;
+    const table = I18N[lang] || I18N.en;
+    return table[key] || I18N.en[key] || t('errorCode', { code: number });
+  }
+
+  function joinParts(...parts) {
+    return parts.filter(Boolean).join(' · ');
+  }
+
+  function updateWifi(state, ip = '', ssid = '', message = '', reason = 0) {
+    wifiData = {
+      state: Number(state),
+      ip,
+      ssid,
+      message,
+      reason: Number(reason) || 0,
+    };
+    renderWifi();
+  }
+
+  function setWifiUnknown() {
+    wifiData = null;
+    renderWifi();
+  }
+
+  function renderWifi() {
+    let head;
+    let dot;
+    let title;
+    let detail;
+
+    if (!wifiData) {
+      head = t('wifiUnknown');
+      dot = '';
+      title = t('wifiUnknownTitle');
+      detail = t('wifiStatusUnknown');
+    } else {
+      const value = wifiData.state;
+      const joined = joinParts(wifiData.ssid, wifiData.ip);
+      if (value === 1) {
+        head = t('wifiConnecting');
+        dot = 'busy';
+        title = t('wifiConnectingTitle');
+        detail = t('wifiConnectingDetail');
+      } else if (value === 2) {
+        head = t('wifiConnected');
+        dot = 'ok';
+        title = t('wifiConnectedTitle') + (joined ? ` · ${joined}` : '');
+        detail = t('wifiConnectedDetail') + (joined ? ` · ${joined}` : '');
+      } else if (value === 3) {
+        const reasonDetail = wifiData.reason
+          ? reasonText(wifiData.reason)
+          : wifiData.message;
+        head = t('wifiFailed');
+        dot = 'err';
+        title = reasonDetail
+          ? t('wifiFailedTitleDetail', { detail: reasonDetail })
+          : t('wifiFailedTitleNoDetail');
+        detail = reasonDetail
+          ? t('wifiFailedDetailText', { detail: reasonDetail })
+          : t('wifiFailedDetail');
+      } else if (value === 4) {
+        head = t('wifiAp');
+        dot = 'ok';
+        title = t('wifiApTitle') + (joined ? ` · ${joined}` : '');
+        detail = t('wifiApDetail') + (joined ? ` · ${joined}` : '');
+      } else {
+        head = t('wifiNotConfigured');
+        dot = '';
+        title = t('wifiNotConfiguredTitle');
+        detail = t('wifiNotConfiguredDetail');
+      }
+    }
+
+    ui.wifiText.textContent = head;
+    ui.wifiDot.className = 'dot' + (dot ? ' ' + dot : '');
+    ui.wifiIndicator.title = title;
+    ui.wifiState.textContent = detail;
+  }
+
+  function unitLabel(unit) {
+    if (unit === 1000000) return 'MHz';
+    if (unit === 1000) return 'kHz';
+    return 'Hz';
+  }
+
+  function formatFrequency(hz) {
+    const value = formatHz(Math.round(Number(hz) || 0));
+    return `${value.value} ${unitLabel(value.unit)}`;
+  }
+
+  function formatDuration(ms) {
+    const seconds = ms / 1000;
+    if (seconds < 60) {
+      return `${seconds.toFixed(seconds < 10 ? 1 : 0)} s`;
+    }
+    const minutes = Math.floor(seconds / 60);
+    return `${minutes}m ${Math.round(seconds % 60)}s`;
+  }
+
+  function readSweepParams() {
+    const channel = Number(ui.sweepCh.value);
+    const unit = Number(ui.sweepUnit.value);
+    const start = parseHz(ui.sweepStart.value, unit);
+    const end = parseHz(ui.sweepEnd.value, unit);
+    const step = parseHz(ui.sweepStep.value, unit);
+    const dwell = Math.round(Number(ui.sweepDwell.value));
+    const repeat = ui.sweepLoop.checked;
+
+    if (start === null || end === null || step === null) {
+      return { error: t('sweepInvalid') };
+    }
+    if (start < MIN_HZ || start > MAX_HZ || end < MIN_HZ || end > MAX_HZ || step > MAX_HZ) {
+      return { error: t('sweepInvalid') };
+    }
+    if (!(dwell >= SWEEP_MIN_DWELL_MS && dwell <= SWEEP_MAX_DWELL_MS)) {
+      return { error: t('sweepInvalid') };
+    }
+    const points = Math.floor(Math.abs(end - start) / step) + 1;
+    if (points > MAX_SWEEP_POINTS) {
+      return { error: t('sweepTooMany', { max: MAX_SWEEP_POINTS }) };
+    }
+    return { channel, start, end, step, dwell, repeat, points };
+  }
+
+  function updateSweepSummary() {
+    if (!ui.sweepSummary) return;
+    const params = readSweepParams();
+    if (params.error) {
+      ui.sweepSummary.textContent = '';
+      return;
+    }
+    ui.sweepSummary.textContent = t('sweepPoints', {
+      points: params.points,
+      duration: formatDuration(params.points * params.dwell),
+    });
+  }
+
+  function updateSweep(running, channel, current) {
+    sweepInfo = {
+      running: Boolean(running),
+      ch: Number(channel) || 0,
+      current: Number(current) || 0,
+    };
+    renderSweep();
+  }
+
+  function setSweepUnknown() {
+    sweepInfo = null;
+    renderSweep();
+  }
+
+  function setChannelsBusy(busy) {
+    rows.forEach((row) => {
+      row.querySelectorAll('input, select, button').forEach((element) => {
+        element.disabled = busy;
+      });
+    });
+  }
+
+  function renderSweep() {
+    const running = Boolean(sweepInfo && sweepInfo.running);
+    ui.sweepStopBtn.disabled = !running;
+    setChannelsBusy(running);
+
+    if (!sweepInfo) {
+      ui.sweepState.textContent = t('sweepUnknown');
+      return;
+    }
+    if (sweepInfo.running) {
+      ui.sweepState.textContent = t('sweepRunningDetail', {
+        ch: `CLK${sweepInfo.ch}`,
+        freq: formatFrequency(sweepInfo.current),
+      });
+    } else if (sweepInfo.current > 0) {
+      ui.sweepState.textContent = t('sweepStoppedDetail', {
+        freq: formatFrequency(sweepInfo.current),
+      });
+    } else {
+      ui.sweepState.textContent = t('sweepIdle');
+    }
+  }
+
+  function applyLanguage() {
+    document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en';
+    document.title = t('title');
+
+    document.querySelectorAll('[data-i18n]').forEach((element) => {
+      element.textContent = t(element.dataset.i18n);
+    });
+    document.querySelectorAll('[data-i18n-html]').forEach((element) => {
+      element.innerHTML = t(element.dataset.i18nHtml);
+    });
+    document.querySelectorAll('[data-i18n-placeholder]').forEach((element) => {
+      element.placeholder = t(element.dataset.i18nPlaceholder);
+    });
+    document.querySelectorAll('[data-i18n-aria-label]').forEach((element) => {
+      element.setAttribute('aria-label', t(element.dataset.i18nAriaLabel));
+    });
+
+    ui.langBtn.textContent = lang === 'zh' ? 'EN' : '中文';
+    ui.langBtn.title = t('langSwitchTitle');
+    ui.langBtn.setAttribute('aria-label', t('langSwitchTitle'));
+
+    renderMode();
+    renderConn();
+    renderSi();
+    renderWifi();
+    renderSweep();
+    updateSweepSummary();
+    renderAllRowStatuses();
+  }
+
+  function toggleLanguage() {
+    lang = lang === 'zh' ? 'en' : 'zh';
+    saveLang(lang);
+    applyLanguage();
+  }
+
+  function formatHz(hz) {
+    if (hz % 1000000 === 0) return { value: hz / 1000000, unit: 1000000 };
+    if (hz % 1000 === 0) return { value: hz / 1000, unit: 1000 };
+    return { value: hz, unit: 1 };
+  }
+
+  function updateRow(index, freq, on, drive) {
+    const row = rows[index];
+    if (!row || row.contains(document.activeElement)) return;
+    const formatted = formatHz(Number(freq));
+    $('[data-freq]', row).value = String(formatted.value);
+    $('[data-unit]', row).value = String(formatted.unit);
+    $('[data-on]', row).checked = Boolean(on);
+    $('[data-drive]', row).value = String(drive);
+  }
+
+  // Digits only: reject a minus sign / exponent as it is typed. Range checking
+  // happens in parseHz() and in the firmware, because the visible unit (MHz) is
+  // not the unit of the limits (Hz).
+  function guardNumberInputs() {
+    const isNumberInput = (element) => (
+      element instanceof HTMLInputElement && element.type === 'number'
+    );
+
+    document.addEventListener('keydown', (event) => {
+      if (!isNumberInput(event.target)) return;
+      if (['-', '+', 'e', 'E'].includes(event.key)) {
+        event.preventDefault();
+      }
+    }, true);
+  }
+
+  function parseHz(text, unit) {
+    if (!text) return null;
+    const value = Number(text);
+    if (!Number.isFinite(value) || value <= 0) return null;
+    const hz = Math.round(value * unit);
+    return Number.isSafeInteger(hz) ? hz : null;
+  }
+
+  // ------------------------------------------------------------------
+  // BLE
+  // ------------------------------------------------------------------
+
+  async function connectBle() {
+    if (!navigator.bluetooth) {
+      log(t('logWebBluetoothUnsupported'));
+      setConn('browserUnsupported', 'err');
+      return;
+    }
+    try {
+      setConn('connecting', 'busy');
+      ui.connectBtn.disabled = true;
+      const device = await navigator.bluetooth.requestDevice({
+        filters: [{ namePrefix: 'Si5351' }],
+        optionalServices: [SERVICE],
+      });
+      device.addEventListener('gattserverdisconnected', onBleDisconnected);
+      const server = await device.gatt.connect();
+      const service = await server.getPrimaryService(SERVICE);
+
+      const chars = {};
+      chars.cmd = await service.getCharacteristic(CMD);
+      chars.rsp = await service.getCharacteristic(RSP);
+      for (let index = 0; index < 3; index += 1) {
+        chars[`ch${index}`] = await service.getCharacteristic(CH[index]);
+      }
+      chars.wifi = await service.getCharacteristic(WIFI);
+      chars.info = await service.getCharacteristic(INFO);
+      chars.sweep = await service.getCharacteristic(SWEEP);
+      ble = { device, chars };
+
+      try {
+        await chars.rsp.startNotifications();
+        chars.rsp.addEventListener('characteristicvaluechanged', onNotification);
+      } catch (error) {
+        log(t('logSubscribeFailed') + (error.message || error));
+      }
+
+      const name = device.name || 'Si5351-FG';
+      setConn('connected', 'ok', name);
+      log(t('logConnected') + name);
+      await readBleStatus();
+      await readBleWifi();
+      await readBleSweep();
+      const info = await readChar('info');
+      if (info) log(t('logFirmware') + info);
+    } catch (error) {
+      log(t('logConnectFailed') + (error.message || error));
+      setConn('notConnected', 'err');
+    } finally {
+      ui.connectBtn.disabled = false;
+    }
+  }
+
+  function onBleDisconnected() {
+    ble = null;
+    setConn('disconnected', 'err');
+    siState = null;
+    renderSi();
+    setWifiUnknown();
+    setSweepUnknown();
+    log(t('logDisconnected'));
+  }
+
+  function clean(text) {
+    return text.replace(/\u0000/g, '').trim();
+  }
+
+  function onNotification(event) {
+    const text = clean(decoder.decode(event.target.value));
+    if (!text) return;
+    log('← ' + text);
+
+    if (text.startsWith('OK S') && pendingChannel !== null) {
+      setRowStatus(pendingChannel, 'rowApplied');
+      pendingChannel = null;
+      setTimeout(readBleStatus, 100);
+    } else if (text === 'ERR SYNTH' && pendingChannel !== null) {
+      setRowStatus(pendingChannel, 'rowUnsupported', undefined, 'err');
+      pendingChannel = null;
+      setTimeout(readBleStatus, 100);
+    } else if (text === 'ERR I2C' && pendingChannel !== null) {
+      setRowStatus(pendingChannel, 'rowI2c', undefined, 'err');
+      pendingChannel = null;
+      updateSi(false);
+    } else if (/^OK \d+\.\d+\.\d+\.\d+$/.test(text)) {
+      updateWifi(2, text.slice(3));
+    } else if (text.startsWith('ERR WIFI')) {
+      const code = Number(text.split(' ')[2] || 0);
+      updateWifi(3, '', '', '', code);
+    } else if (text === 'WIFI...') {
+      updateWifi(1);
+    } else if (text === 'ERR SWEEP') {
+      ui.sweepState.textContent = t('sweepInvalid');
+    }
+  }
+
+  async function readChar(key) {
+    if (!ble || !ble.chars[key]) return '';
+    try {
+      const value = await ble.chars[key].readValue();
+      return clean(decoder.decode(value));
+    } catch (error) {
+      log(t('logReadFailed') + (error.message || error));
+      return '';
+    }
+  }
+
+  async function readBleStatus() {
+    if (!ble) return;
+    for (let index = 0; index < 3; index += 1) {
+      const parts = (await readChar(`ch${index}`)).split(',');
+      if (parts.length === 3) {
+        updateRow(index, Number(parts[0]), parts[1] === '1', Number(parts[2]));
+      }
+    }
+    const info = (await readChar('info')).split(',');
+    if (info.length >= 3) updateSi(info[2] === '1');
+  }
+
+  async function readBleWifi() {
+    if (!ble) return;
+    const parts = (await readChar('wifi')).split(',');
+    if (parts.length >= 1) {
+      updateWifi(Number(parts[0]), parts[1] || '', '', '', Number(parts[2] || 0));
+    }
+  }
+
+  async function readBleSweep() {
+    if (!ble) return;
+    const parts = (await readChar('sweep')).split(',');
+    if (parts.length >= 3) {
+      updateSweep(parts[0] === '1', Number(parts[1]), Number(parts[2]));
+    }
+  }
+
+  function sendCommand(command) {
+    writeChain = writeChain
+      .then(async () => {
+        if (!ble || !ble.chars.cmd) throw new Error(t('bleNotConnected'));
+        await ble.chars.cmd.writeValueWithResponse(encoder.encode(command + '\n'));
+        log('→ ' + command);
+      })
+      .catch((error) => {
+        log(t('logSendFailed') + (error.message || error));
+        setConn('sendFailed', 'err');
+      });
+    return writeChain;
+  }
+
+  // ------------------------------------------------------------------
+  // HTTP
+  // ------------------------------------------------------------------
+
+  async function httpJson(path, options) {
+    const response = await fetch(path, { cache: 'no-store', ...options });
+    let data = {};
+    try {
+      data = await response.json();
+    } catch (_) {
+      /* not JSON */
+    }
+    if (!response.ok) throw new Error(data.err || 'HTTP ' + response.status);
+    return data;
+  }
+
+  async function httpStatus() {
+    return httpJson('api/status');
+  }
+
+  function applyStatus(status) {
+    (status.ch || []).forEach((channel, index) => {
+      updateRow(index, channel.f, Boolean(channel.on), channel.d);
+    });
+    if (status.wifi) {
+      updateWifi(
+        status.wifi.state,
+        status.wifi.ip || '',
+        status.wifi.ssid || '',
+        status.wifi.msg || '',
+        status.wifi.reason || 0,
+      );
+    }
+    updateSi(Boolean(status.si));
+    if (status.sweep) {
+      updateSweep(status.sweep.running, status.sweep.ch, status.sweep.current);
+    }
+    setConn(status.ble ? 'bleConnected' : 'wifiConnected', 'ok');
+  }
+
+  // ------------------------------------------------------------------
+  // Actions
+  // ------------------------------------------------------------------
+
+  async function refresh() {
+    if (mode === 'http') {
+      try {
+        applyStatus(await httpStatus());
+      } catch (error) {
+        setConn('unreachable', 'err');
+        log(t('logRefreshFailed') + (error.message || error));
+      }
+    } else {
+      await readBleStatus();
+      await readBleWifi();
+      await readBleSweep();
+    }
+  }
+
+  async function applyChannel(index) {
+    const row = rows[index];
+    const unit = Number($('[data-unit]', row).value);
+    const hz = parseHz($('[data-freq]', row).value, unit);
+    const on = $('[data-on]', row).checked;
+    const drive = Number($('[data-drive]', row).value);
+
+    if (hz === null) {
+      setRowStatus(index, 'rowInvalidFreq', undefined, 'err');
+      return;
+    }
+    if (hz < MIN_HZ || hz > MAX_HZ) {
+      setRowStatus(index, 'rowRange', undefined, 'err');
+      return;
+    }
+
+    if (mode === 'http') {
+      setRowStatus(index, 'rowApplying');
+      try {
+        const result = await httpJson(
+          `api/channel?ch=${index}&freq=${hz}&on=${on ? 1 : 0}&drive=${drive}`,
+          { method: 'POST' },
+        );
+        if (!result.ok) throw new Error(result.err || t('failed'));
+        setRowStatus(index, 'rowApplied');
+        await refresh();
+      } catch (error) {
+        setRowStatus(index, 'rowFailed', { msg: error.message || error }, 'err');
+      }
+    } else {
+      pendingChannel = index;
+      setRowStatus(index, 'rowWorking');
+      await sendCommand(`SET ${index} ${hz} ${on ? 1 : 0} ${drive}`);
+      setTimeout(() => {
+        if (pendingChannel === index) {
+          pendingChannel = null;
+          setRowStatus(index, 'rowSent');
+          readBleStatus();
+        }
+      }, 1200);
+    }
+  }
+
+  function toHex(text) {
+    return Array.from(encoder.encode(text))
+      .map((byte) => byte.toString(16).padStart(2, '0'))
+      .join('');
+  }
+
+  async function sendWifi() {
+    const ssid = ui.ssid.value.trim();
+    const password = ui.pass.value;
+    if (!ssid) {
+      ui.wifiState.textContent = t('wifiSsidRequired');
+      return;
+    }
+    if (encoder.encode(ssid).length > 32 || encoder.encode(password).length > 64) {
+      ui.wifiState.textContent = t('wifiCredentialsTooLong');
+      return;
+    }
+
+    if (mode === 'http') {
+      try {
+        const params = new URLSearchParams({ ssid, pass: password });
+        const result = await httpJson('api/wifi?' + params.toString(), { method: 'POST' });
+        if (!result.ok) throw new Error(result.err || t('failed'));
+        updateWifi(1);
+        setTimeout(refresh, 1500);
+      } catch (error) {
+        const message = String(error && error.message ? error.message : error);
+        if (message.includes('fetch') || message.includes('NetworkError')) {
+          ui.wifiState.textContent = t('deviceSwitching');
+        } else {
+          ui.wifiState.textContent = t('wifiSendFailed', { msg: message });
+        }
+      }
+    } else {
+      const ssidHex = toHex(ssid);
+      const passHex = password ? toHex(password) : '-';
+      await sendCommand(`WIFI ${ssidHex} ${passHex}`);
+      updateWifi(1);
+      setTimeout(readBleWifi, 400);
+      setTimeout(readBleWifi, 1600);
+      setTimeout(readBleWifi, 4500);
+    }
+  }
+
+  async function startSweep() {
+    const params = readSweepParams();
+    if (params.error) {
+      ui.sweepState.textContent = params.error;
+      return;
+    }
+
+    if (mode === 'http') {
+      try {
+        const query = new URLSearchParams({
+          ch: params.channel,
+          start: params.start,
+          end: params.end,
+          step: params.step,
+          dwell: params.dwell,
+          loop: params.repeat ? 1 : 0,
+        });
+        await httpJson('api/sweep?' + query.toString(), { method: 'POST' });
+        updateSweep(true, params.channel, params.start);
+        setTimeout(refresh, 400);
+      } catch (error) {
+        ui.sweepState.textContent = t('sweepFailed', {
+          msg: error.message || error,
+        });
+      }
+    } else {
+      await sendCommand(
+        `SWEEP ${params.channel} ${params.start} ${params.end} ${params.step} ${params.dwell} ${params.repeat ? 1 : 0}`,
+      );
+      updateSweep(true, params.channel, params.start);
+      setTimeout(readBleSweep, 400);
+      setTimeout(readBleSweep, 1200);
+    }
+  }
+
+  async function stopSweep() {
+    const currentChannel = sweepInfo ? sweepInfo.ch : Number(ui.sweepCh.value);
+    const currentFreq = sweepInfo ? sweepInfo.current : 0;
+
+    if (mode === 'http') {
+      try {
+        await httpJson('api/sweep/stop', { method: 'POST' });
+        updateSweep(false, currentChannel, currentFreq);
+        setTimeout(refresh, 300);
+      } catch (error) {
+        ui.sweepState.textContent = t('sweepFailed', {
+          msg: error.message || error,
+        });
+      }
+    } else {
+      await sendCommand('SWEEP STOP');
+      updateSweep(false, currentChannel, currentFreq);
+      setTimeout(readBleSweep, 400);
+    }
+  }
+
+  async function forgetWifi() {
+    if (!window.confirm(t('confirmForget'))) return;
+
+    if (mode === 'http') {
+      try {
+        await httpJson('api/wifi/forget', { method: 'POST' });
+        updateWifi(4, AP_IP, AP_SSID);
+        ui.ssid.value = '';
+        ui.pass.value = '';
+      } catch (error) {
+        const message = String(error && error.message ? error.message : error);
+        if (message.includes('fetch') || message.includes('NetworkError')) {
+          updateWifi(4, AP_IP, AP_SSID);
+          ui.wifiState.textContent = t('deviceSwitching');
+        } else {
+          ui.wifiState.textContent = t('forgetFailed', { msg: message });
+        }
+      }
+    } else {
+      await sendCommand('FORGET');
+      updateWifi(4, AP_IP, AP_SSID);
+      ui.ssid.value = '';
+      ui.pass.value = '';
+      setTimeout(readBleWifi, 500);
+      setTimeout(readBleWifi, 1500);
+    }
+  }
+
+  async function save() {
+    if (mode === 'http') {
+      try {
+        await httpJson('api/save', { method: 'POST' });
+        log(t('logSaved'));
+      } catch (error) {
+        log(t('logSaveFailed') + (error.message || error));
+      }
+    } else {
+      await sendCommand('SAVE');
+    }
+  }
+
+  async function reset() {
+    if (!window.confirm(t('confirmReset'))) return;
+    if (mode === 'http') {
+      try {
+        await httpJson('api/reset', { method: 'POST' });
+        await refresh();
+      } catch (error) {
+        log(t('logResetFailed') + (error.message || error));
+      }
+    } else {
+      await sendCommand('RESET');
+      setTimeout(readBleStatus, 300);
+    }
+  }
+
+  async function tick() {
+    if (document.visibilityState !== 'visible') return;
+    if (mode === 'http') {
+      try {
+        applyStatus(await httpStatus());
+      } catch (_) {
+        /* keep the last known state */
+      }
+    } else if (ble) {
+      await readBleWifi();
+      await readBleSweep();
+    }
+  }
+
+  async function init() {
+    applyLanguage();
+    guardNumberInputs();
+    updateRow(0, 10000000, true, 8);
+    updateRow(1, 1000000, false, 8);
+    updateRow(2, 1000000, false, 8);
+
+    ui.connectBtn.addEventListener('click', connectBle);
+    ui.refreshBtn.addEventListener('click', refresh);
+    ui.langBtn.addEventListener('click', toggleLanguage);
+    ui.saveBtn.addEventListener('click', save);
+    ui.resetBtn.addEventListener('click', reset);
+    ui.wifiBtn.addEventListener('click', sendWifi);
+    ui.forgetBtn.addEventListener('click', forgetWifi);
+    ui.sweepStartBtn.addEventListener('click', startSweep);
+    ui.sweepStopBtn.addEventListener('click', stopSweep);
+    [ui.sweepCh, ui.sweepStart, ui.sweepEnd, ui.sweepStep, ui.sweepUnit, ui.sweepDwell].forEach(
+      (element) => {
+        element.addEventListener('input', updateSweepSummary);
+        element.addEventListener('change', updateSweepSummary);
+      },
+    );
+    updateSweepSummary();
+    rows.forEach((row, index) => {
+      $('[data-apply]', row).addEventListener('click', () => applyChannel(index));
+    });
+
+    window.addEventListener('languagechange', () => {
+      if (!storedLang()) {
+        lang = browserLang();
+        applyLanguage();
+      }
+    });
+
+    if (location.protocol === 'http:' || location.protocol === 'https:') {
+      try {
+        const status = await httpStatus();
+        setMode('http');
+        applyStatus(status);
+        log(t('logHttpConnected'));
+      } catch (_) {
+        setMode('ble');
+      }
+    } else {
+      setMode('ble');
+    }
+
+    if (mode === 'ble') {
+      setConn(navigator.bluetooth ? 'notConnected' : 'noBle', navigator.bluetooth ? '' : 'err');
+    }
+    setInterval(tick, 5000);
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>
